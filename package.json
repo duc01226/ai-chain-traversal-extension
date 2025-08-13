@@ -1,0 +1,936 @@
+{
+  "name": "ai-chain-traversal-tools",
+  "displayName": "AI Chain Traversal Tools",
+  "description": "VS Code extension providing external state management and chain traversal tools for AI agents to prevent context loss during code discovery",
+  "version": "1.0.0",
+  "author": "duc01226",
+  "publisher": "duc01226",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/duc01226/ai-chain-traversal-extension.git"
+  },
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "icon": "icon.png",
+  "keywords": [
+    "ai",
+    "copilot",
+    "chain-traversal",
+    "code-discovery",
+    "context-management",
+    "external-state",
+    "entity-graph"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "AI Chain Traversal Tools",
+      "properties": {
+        "aiChainTraversal.autoSaveInterval": {
+          "type": "number",
+          "default": 30,
+          "description": "Auto-save interval in seconds for discovery state"
+        },
+        "aiChainTraversal.maxEntityCacheSize": {
+          "type": "number",
+          "default": 10000,
+          "description": "Maximum number of entities to cache in memory"
+        },
+        "aiChainTraversal.enableDebugLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug logging for chain traversal operations"
+        },
+        "aiChainTraversal.stateFileLocation": {
+          "type": "string",
+          "default": ".vscode/chain-traversal",
+          "description": "Directory to store discovery state files"
+        },
+        "aiChainTraversal.showProgressNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show progress notifications during chain traversal operations"
+        },
+        "aiChainTraversal.tokenManagement.maxTokens": {
+          "type": "number",
+          "default": 128000,
+          "description": "Maximum token limit for AI models (GPT-4 Turbo: 128000, GPT-4: 8192, GPT-3.5: 4096)"
+        },
+        "aiChainTraversal.tokenManagement.charactersPerToken": {
+          "type": "number",
+          "default": 4,
+          "description": "Estimated characters per token for token counting (GPT models: 4, other models may vary)"
+        },
+        "aiChainTraversal.tokenManagement.warningThreshold": {
+          "type": "number",
+          "default": 90,
+          "minimum": 50,
+          "maximum": 100,
+          "description": "Token usage percentage to trigger summarization warning (50-100%)"
+        },
+        "aiChainTraversal.tokenManagement.criticalThreshold": {
+          "type": "number",
+          "default": 95,
+          "minimum": 50,
+          "maximum": 100,
+          "description": "Token usage percentage to trigger critical summarization (50-100%)"
+        },
+        "aiChainTraversal.tokenManagement.reductionTarget": {
+          "type": "number",
+          "default": 70,
+          "minimum": 30,
+          "maximum": 90,
+          "description": "Target token usage percentage after summarization (30-90%)"
+        },
+        "aiChainTraversal.tokenManagement.maxEntitiesPerType": {
+          "type": "number",
+          "default": 20,
+          "minimum": 5,
+          "maximum": 100,
+          "description": "Maximum entities to preserve per type during summarization"
+        },
+        "aiChainTraversal.tokenManagement.preserveTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Entity", "Repository", "Command", "Query", "Handler", "Controller", "Service", 
+              "Component", "Store", "Event", "Job", "API", "DTO", "Interface", "Configuration",
+              "Page", "Layout", "Hook", "Context", "Provider", "Reducer", "Action", "Selector",
+              "CommandHandler", "QueryHandler", "EventHandler", "ViewModel", "DataModel", "UiState", "DataState",
+              "Model", "Presentation"
+            ]
+          },
+          "default": [
+            "Entity", "Controller", "Service", "CommandHandler", "QueryHandler", "EventHandler",
+            "Component", "DTO", "Store", "ViewModel", "DataModel", 
+            "UiState", "DataState", "Model", "API", "Presentation"
+          ],
+          "description": "Entity types to prioritize during context summarization. These architecturally important types are preserved when reducing token usage: Entity (domain objects), Controller (API endpoints), Service (business logic), CommandHandler/QueryHandler (CQRS), Component (UI elements), DTO (data transfer), Store (state management), ViewModel/DataModel (data presentation), UiState/DataState (state objects), Model (general models), API (service interfaces), Presentation (UI layer)."
+        },
+        "aiChainTraversal.performance.memoryWarningThreshold": {
+          "type": "number",
+          "default": 75,
+          "minimum": 50,
+          "maximum": 100,
+          "description": "Memory usage percentage to trigger warnings (50-100%)"
+        },
+        "aiChainTraversal.performance.memoryErrorThreshold": {
+          "type": "number",
+          "default": 90,
+          "minimum": 70,
+          "maximum": 100,
+          "description": "Memory usage percentage to trigger errors (70-100%)"
+        },
+        "aiChainTraversal.performance.maxMemoryUsageMB": {
+          "type": "number",
+          "default": 2048,
+          "minimum": 512,
+          "maximum": 8192,
+          "description": "Maximum memory usage in MB before optimization"
+        },
+        "aiChainTraversal.performance.responseTimeWarningMs": {
+          "type": "number",
+          "default": 10000,
+          "minimum": 1000,
+          "maximum": 60000,
+          "description": "Response time in milliseconds to trigger performance warnings"
+        },
+        "aiChainTraversal.performance.maxRelationshipCacheSize": {
+          "type": "number",
+          "default": 50000,
+          "minimum": 1000,
+          "maximum": 200000,
+          "description": "Maximum number of relationships to cache in memory"
+        },
+        "aiChainTraversal.performance.cacheCleanupPercentage": {
+          "type": "number",
+          "default": 20,
+          "minimum": 10,
+          "maximum": 50,
+          "description": "Percentage of cache to remove when limit is reached (10-50%)"
+        },
+        "aiChainTraversal.performance.metricsHistoryLimit": {
+          "type": "number",
+          "default": 100,
+          "minimum": 10,
+          "maximum": 1000,
+          "description": "Number of historical performance metrics to keep"
+        },
+        "aiChainTraversal.multiAgent.agentTimeoutMs": {
+          "type": "number",
+          "default": 300000,
+          "minimum": 60000,
+          "maximum": 1800000,
+          "description": "Timeout for agent operations in milliseconds (1-30 minutes)"
+        },
+        "aiChainTraversal.validation.completenessThreshold": {
+          "type": "number",
+          "default": 100,
+          "minimum": 50,
+          "maximum": 100,
+          "description": "Minimum completeness percentage for chain validation (50-100%)"
+        },
+        "aiChainTraversal.validation.coverageThreshold": {
+          "type": "number",
+          "default": 95,
+          "minimum": 50,
+          "maximum": 100,
+          "description": "Minimum coverage percentage for comprehensive analysis (50-100%)"
+        },
+        "aiChainTraversal.general.maxTaskDescriptionLength": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 100,
+          "maximum": 5000,
+          "description": "Maximum length for task descriptions in characters"
+        },
+        "aiChainTraversal.general.cacheCleanupBuffer": {
+          "type": "number",
+          "default": 100,
+          "minimum": 10,
+          "maximum": 500,
+          "description": "Buffer size for cache cleanup operations"
+        },
+        "aiChainTraversal.scoring.discoveryMethods": {
+          "type": "object",
+          "default": {
+            "semantic_search": 30,
+            "grep_search": 20,
+            "list_code_usages": 40,
+            "file_search": 35,
+            "manual": 45,
+            "inference": 25
+          },
+          "description": "Score weights for different entity discovery methods. Higher scores indicate higher importance for entity preservation during compression.",
+          "properties": {
+            "semantic_search": {"type": "number", "minimum": 0, "maximum": 100},
+            "grep_search": {"type": "number", "minimum": 0, "maximum": 100},
+            "list_code_usages": {"type": "number", "minimum": 0, "maximum": 100},
+            "file_search": {"type": "number", "minimum": 0, "maximum": 100},
+            "manual": {"type": "number", "minimum": 0, "maximum": 100},
+            "inference": {"type": "number", "minimum": 0, "maximum": 100}
+          }
+        },
+        "aiChainTraversal.scoring.priorityLevels": {
+          "type": "object",
+          "default": {
+            "1": 75,
+            "2": 50,
+            "3": 25,
+            "4": 15,
+            "5": 10
+          },
+          "description": "Score weights for priority levels (1=highest, 5=lowest). Higher scores indicate higher importance for entity preservation.",
+          "properties": {
+            "1": {"type": "number", "minimum": 0, "maximum": 100},
+            "2": {"type": "number", "minimum": 0, "maximum": 100},
+            "3": {"type": "number", "minimum": 0, "maximum": 100},
+            "4": {"type": "number", "minimum": 0, "maximum": 100},
+            "5": {"type": "number", "minimum": 0, "maximum": 100}
+          }
+        },
+        "aiChainTraversal.scoring.recentProcessingHours": {
+          "type": "number",
+          "default": 50,
+          "minimum": 1,
+          "maximum": 168,
+          "description": "Time threshold in hours for considering an entity as 'recently processed' (1 hour to 1 week)"
+        },
+        "aiChainTraversal.compression.minimalRelationshipThreshold": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "Minimum number of relationships required for 'minimal' compression level"
+        },
+        "aiChainTraversal.compression.summaryRelationshipThreshold": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Minimum number of relationships required for 'summary' compression level"
+        },
+        "aiChainTraversal.relationships.criticalTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "USES", "IMPLEMENTS", "EXTENDS", "CALLS", "REFERENCES", "CONTAINS",
+              "DEPENDS_ON", "CONFIGURES", "HANDLES", "PUBLISHES", "SUBSCRIBES",
+              "VALIDATES", "TRANSFORMS"
+            ]
+          },
+          "default": ["DEPENDS_ON", "CALLS", "USES", "IMPLEMENTS", "EXTENDS"],
+          "description": "Relationship types considered critical for dependency chain analysis"
+        },
+        "aiChainTraversal.context.significanceMultiplier": {
+          "type": "number",
+          "default": 1.5,
+          "minimum": 1.1,
+          "maximum": 3.0,
+          "description": "Multiplier for determining when new context is 'significantly more detailed' than existing context"
+        },
+        "aiChainTraversal.validation.excellentThreshold": {
+          "type": "number",
+          "default": 95,
+          "minimum": 80,
+          "maximum": 100,
+          "description": "Percentage threshold for 'excellent' completion status"
+        },
+        "aiChainTraversal.validation.goodThreshold": {
+          "type": "number",
+          "default": 80,
+          "minimum": 60,
+          "maximum": 95,
+          "description": "Percentage threshold for 'good' completion status"
+        },
+        "aiChainTraversal.recovery.defaultMetadataTokenLimit": {
+          "type": "number",
+          "default": 50000,
+          "minimum": 10000,
+          "maximum": 200000,
+          "description": "Default token limit for metadata-only context recovery"
+        },
+        "aiChainTraversal.recovery.tokensPerEntityEstimate": {
+          "type": "number",
+          "default": 100,
+          "minimum": 50,
+          "maximum": 500,
+          "description": "Estimated tokens per entity for recovery pagination calculations"
+        }
+      }
+    },
+    "languageModelTools": [
+      {
+        "name": "ai-chain-traversal_initializeSession",
+        "tags": [
+          "discovery",
+          "session-management",
+          "state-management",
+          "chain-traversal"
+        ],
+        "toolReferenceName": "initializeSession",
+        "displayName": "Initialize Discovery Session",
+        "modelDescription": "Initialize a new AI-driven code discovery session with external state management. **TRIGGER PATTERNS**: Use when you see requests for 'analyze whole source code', 'Chain-Based Graph Traversal', 'prioritizedWorkQueue', 'checkpointing after each group', 'knowledgeGraph construction', multi-phase analysis with external state requirements, or any comprehensive codebase investigation. **WORKFLOW ENTRY POINT**: This tool MUST be called FIRST before using any other AI Chain Traversal tools. USE THIS FIRST when starting any comprehensive code analysis or complex investigation that requires tracking multiple entities across files. This tool prevents context loss and enables systematic exploration. Creates persistent storage for entities, relationships, and processing state. Essential for tasks involving dependency tracing, architecture mapping, or multi-file analysis workflows.",
+        "userDescription": "Start a new code discovery session with external state management to prevent AI context loss.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(rocket)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "taskDescription": {
+              "type": "string",
+              "description": "Description of the analysis task to be performed (e.g., 'Analyze user management system', 'Map authentication flow')"
+            },
+            "workspaceRoot": {
+              "type": "string",
+              "description": "Optional workspace root path (defaults to current workspace)"
+            }
+          },
+          "required": [
+            "taskDescription"
+          ]
+        }
+      },
+      {
+        "name": "ai-chain-traversal_addEntity",
+        "tags": [
+          "entity-management",
+          "discovery",
+          "graph-building",
+          "chain-traversal"
+        ],
+        "toolReferenceName": "addEntity",
+        "displayName": "Add Entity to Graph",
+        "modelDescription": "Register discovered code entities into the external state graph for persistent tracking. **TRIGGER PATTERNS**: Use when conducting systematic entity discovery from 'prioritizedWorkQueue', building 'knowledgeGraph', or performing 'Chain-Based Graph Traversal'. USE THIS AFTER conducting initial file discovery (through workspace exploration, pattern searches, or code analysis) when you have identified relevant files and want to systematically catalog the entities within them for relationship mapping. This tool helps build a comprehensive entity graph from your initial findings. Accepts an array of entities (use single-item array for one entity) or file paths for automatic entity discovery. Supports comprehensive entity types including: Frontend (Component, Page, Hook, Context, Provider), Backend (Controller, Service, Model, Repository, Gateway), Architecture (Command, Query, Handler, DTO, Interface), Infrastructure (Container, Docker, Pipeline, Lambda), Testing (Test, Mock, Fixture), Build Tools (Webpack, Script, Package.json), Documentation (README, API-Doc). After registering entities, use relationship mapping tools to understand connections and dependencies between the discovered entities for a complete architectural picture.",
+        "userDescription": "Register a discovered code entity in the external state management system.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(add)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "entities": {
+              "type": "array",
+              "description": "Array of entity objects for batch processing. For single entity, use array with one item.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "Unique identifier for the entity"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "Entity type - choose the most specific type: Frontend (Component, Page, Hook, Context, Provider, Reducer, Action, Selector, Guard, Resolver, Directive, Pipe, Filter, Vue, React, Angular, Svelte), Backend (Controller, Service, Model, Repository, Gateway, Adapter, Mapper, Transformer, Validator, Middleware, Module), Architecture (Entity, Command, Query, Handler, DTO, Interface, Store, Event, Job, API, Configuration), Database (Table, View, Index, Procedure, Function, Collection, Document, Cache, Queue), Infrastructure (Container, Docker, Kubernetes, Pipeline, Lambda, Serverless), Testing (Test, Spec, Mock, Stub, Fixture, TestCase, E2E, Integration, Unit), Build (Webpack, Script, Dockerfile, Package.json, Makefile), Auth (Authentication, Authorization, Permission, Role, JWT, OAuth), Monitoring (Logger, Metric, Monitor, Alert, Dashboard), Documentation (README, API-Doc, Comment), Utilities (Utility, Helper, Tool, Parser, Converter), Cloud (AWS, Azure, Firebase, Vercel), or Other/Custom/Unknown"
+                  },
+                  "filePath": {
+                    "type": "string",
+                    "description": "Path to the file containing this entity"
+                  },
+                  "businessContext": {
+                    "type": "string",
+                    "description": "Business domain context"
+                  },
+                  "chainContext": {
+                    "type": "string",
+                    "description": "Processing chain context"
+                  }
+                },
+                "required": [
+                  "id",
+                  "type",
+                  "filePath",
+                  "businessContext",
+                  "chainContext"
+                ]
+              }
+            },
+            "filePathsToExpand": {
+              "type": "array",
+              "description": "Array of file paths to analyze and extract entities from. Use this when you have a list of relevant files from initial exploration and want to discover and register entities from all of them",
+              "items": {
+                "type": "string",
+                "description": "File path to analyze for entity discovery"
+              }
+            },
+            "expansionContext": {
+              "type": "object",
+              "description": "Context for automatic entity expansion from file paths. Required when using filePathsToExpand.",
+              "properties": {
+                "businessDomain": {
+                  "type": "string",
+                  "description": "Business domain context for the expansion (e.g., 'user management', 'payment processing')"
+                },
+                "analysisGoal": {
+                  "type": "string",
+                  "description": "Goal of the analysis (e.g., 'map authentication flow', 'understand data layer')"
+                },
+                "entityTypeFocus": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Specific entity types to focus on during expansion (e.g., ['Controller', 'Service', 'Model'])"
+                }
+              },
+              "required": [
+                "businessDomain",
+                "analysisGoal"
+              ]
+            }
+          },
+          "oneOf": [
+            {
+              "required": ["entities"]
+            },
+            {
+              "required": ["filePathsToExpand", "expansionContext"]
+            }
+          ]
+        }
+      },
+      {
+        "name": "ai-chain-traversal_addRelationship",
+        "tags": [
+          "relationship-management",
+          "graph-building",
+          "dependency-mapping",
+          "chain-traversal"
+        ],
+        "toolReferenceName": "addRelationship",
+        "displayName": "Add Entity Relationship",
+        "modelDescription": "Create relationships between discovered entities in the external state graph. **TRIGGER PATTERNS**: Use when building 'knowledgeGraph' connections, mapping dependencies during 'Chain-Based Graph Traversal', or after entity registration to establish relationships. USE AFTER entities have been registered to map their dependencies, usage patterns, and architectural connections. This builds the dependency and reference network that enables chain-aware processing and comprehensive analysis across entity boundaries. Essential for understanding data flow, call chains, and architectural patterns. Call this tool for each relationship discovered between entities.",
+        "userDescription": "Create a relationship between two entities in the discovery graph.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(link)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "relationship": {
+              "type": "object",
+              "description": "Relationship object defining the connection between entities",
+              "properties": {
+                "fromEntityId": {
+                  "type": "string",
+                  "description": "Source entity ID"
+                },
+                "toEntityId": {
+                  "type": "string",
+                  "description": "Target entity ID"
+                },
+                "relationshipType": {
+                  "type": "string",
+                  "description": "Type of relationship (USES, DEPENDS_ON, CALLS, etc.)"
+                },
+                "strength": {
+                  "type": "number",
+                  "description": "Relationship strength (0.0-1.0)"
+                },
+                "bidirectional": {
+                  "type": "boolean",
+                  "description": "Whether relationship works both ways"
+                }
+              },
+              "required": [
+                "fromEntityId",
+                "toEntityId",
+                "relationshipType"
+              ]
+            }
+          },
+          "required": [
+            "relationship"
+          ]
+        }
+      },
+      {
+        "name": "ai-chain-traversal_getNextWorkItem",
+        "tags": [
+          "work-management",
+          "priority-processing",
+          "coordination",
+          "chain-traversal"
+        ],
+        "toolReferenceName": "getNextWorkItem",
+        "displayName": "Get Next Work Item",
+        "modelDescription": "Retrieve the next priority work item for systematic processing from the external state management system. **TRIGGER PATTERNS**: Use when following 'prioritizedWorkQueue' processing, implementing 'checkpointing after each group', or coordinating systematic analysis workflows. USE WHEN you need to process entities in dependency order rather than random order, or when coordinating with multiple agents. This enables coordinated processing between multiple AI agents and ensures systematic analysis following dependency chains. Particularly useful for large codebases where systematic exploration is needed rather than ad-hoc investigation.",
+        "userDescription": "Get the next priority work item for systematic code analysis.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(list-ordered)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "priority": {
+              "type": "number",
+              "description": "Priority level filter (1-5, optional)"
+            },
+            "agentId": {
+              "type": "string",
+              "description": "Agent identifier for coordination (optional)"
+            }
+          }
+        }
+      },
+      {
+        "name": "ai-chain-traversal_markProcessed",
+        "tags": [
+          "completion-tracking",
+          "progress-management",
+          "state-updates",
+          "chain-traversal"
+        ],
+        "toolReferenceName": "markProcessed",
+        "displayName": "Mark Entity Processed",
+        "modelDescription": "Mark an entity as processed with analysis results in the external state system. **TRIGGER PATTERNS**: Use when completing systematic entity analysis during 'prioritizedWorkQueue' processing, implementing 'checkpointing after each group', or tracking progress in multi-phase analysis workflows. USE AFTER completing detailed analysis of an entity to track progress and store findings. This updates the processing status and stores analysis metadata for future reference and dependency chain completion tracking. Essential for maintaining state in long-running analysis sessions and preventing duplicate work across multiple investigation phases.",
+        "userDescription": "Mark an entity as processed and store analysis results.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(check)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "entityId": {
+              "type": "string",
+              "description": "ID of the entity that has been processed"
+            },
+            "processingResult": {
+              "type": "object",
+              "description": "Results of the processing operation",
+              "properties": {
+                "success": {
+                  "type": "boolean",
+                  "description": "Whether processing succeeded"
+                },
+                "processingTime": {
+                  "type": "number",
+                  "description": "Time taken in milliseconds"
+                },
+                "discoveredEntities": {
+                  "type": "array",
+                  "description": "Any new entities discovered during processing",
+                  "items": {
+                    "type": "object"
+                  }
+                },
+                "discoveredRelationships": {
+                  "type": "array",
+                  "description": "Any new relationships discovered",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "success"
+              ]
+            },
+            "agentId": {
+              "type": "string",
+              "description": "Agent identifier (optional)"
+            }
+          },
+          "required": [
+            "entityId",
+            "processingResult"
+          ]
+        }
+      },
+      {
+        "name": "ai-chain-traversal_validateChains",
+        "tags": [
+          "validation",
+          "completeness-analysis",
+          "quality-assurance",
+          "chain-traversal"
+        ],
+        "toolReferenceName": "validateChains",
+        "displayName": "Validate Chain Completeness",
+        "modelDescription": "Validate the completeness and integrity of discovery chains in the external state system. **TRIGGER PATTERNS**: Use when completing 'Chain-Based Graph Traversal', validating 'knowledgeGraph' completeness, or assessing multi-phase analysis quality. USE WHEN you want to assess analysis quality and identify gaps in understanding. This analyzes entity relationships, identifies missing links, orphaned entities, and provides recommendations for completing the analysis. Helps determine if sufficient exploration has been completed or if additional investigation is needed in specific areas.",
+        "userDescription": "Validate the completeness and integrity of entity discovery chains.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(verified)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "chainId": {
+              "type": "string",
+              "description": "Specific chain ID to validate (optional, validates all if not provided)"
+            }
+          }
+        }
+      },
+      {
+        "name": "ai-chain-traversal_generateReport",
+        "tags": [
+          "reporting",
+          "analysis-summary",
+          "export",
+          "chain-traversal"
+        ],
+        "toolReferenceName": "generateReport",
+        "displayName": "Generate Discovery Report",
+        "modelDescription": "Generate comprehensive analysis reports from the external state management system. **TRIGGER PATTERNS**: Use when completing comprehensive source code analysis, exporting 'knowledgeGraph' findings, or generating deliverables from multi-phase analysis. USE WHEN you need to summarize findings, create documentation, or export analysis results. This creates detailed documentation of discovered entities, relationships, chain completeness, and analysis metrics with export capabilities. Perfect for creating final deliverables, sharing analysis results, or preparing structured summaries of investigation findings.",
+        "userDescription": "Generate a comprehensive report of the code discovery analysis.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(file-text)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "includeStatistics": {
+              "type": "boolean",
+              "description": "Include detailed statistics in the report (default: true)"
+            },
+            "exportFormat": {
+              "type": "string",
+              "enum": [
+                "yaml",
+                "json",
+                "markdown"
+              ],
+              "description": "Export format for the report (default: yaml)"
+            }
+          }
+        }
+      },
+      {
+        "name": "ai-chain-traversal_coordinateAgents",
+        "tags": [
+          "coordination",
+          "multi-agent",
+          "performance-optimization",
+          "token-management",
+          "parallelism"
+        ],
+        "toolReferenceName": "coordinateAgents",
+        "displayName": "Coordinate Multiple Agents",
+        "modelDescription": "Coordinate multiple AI agents for parallel processing with advanced token management and performance optimization. **TRIGGER PATTERNS**: Use when handling very large source code analysis, implementing multi-phase analysis workflows, or managing complex 'Chain-Based Graph Traversal' with external state requirements. USE WHEN dealing with very large codebases or complex analysis tasks that would benefit from parallel investigation by specialized agents. Enables efficient distribution of work items across agents with real-time performance monitoring and token usage tracking. Each agent can focus on specific domains (frontend, backend, testing, etc.) while maintaining coordination through the external state system.",
+        "userDescription": "Coordinate multiple AI agents for efficient parallel code analysis.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(organization)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "Discovery session ID for coordination"
+            },
+            "agents": {
+              "type": "array",
+              "description": "Array of agent configurations",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "Unique agent identifier"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Agent display name"
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Agent capabilities (e.g., 'typescript', 'react', 'backend')"
+                  },
+                  "maxConcurrentTasks": {
+                    "type": "number",
+                    "description": "Maximum concurrent tasks for this agent"
+                  }
+                },
+                "required": ["id", "name"]
+              }
+            },
+            "distributionStrategy": {
+              "type": "string",
+              "enum": ["capability", "loadBalance", "priorityWeight", "roundRobin"],
+              "description": "Task distribution strategy (default: capability)"
+            },
+            "maxTokens": {
+              "type": "number",
+              "description": "Maximum tokens for coordination (optional)"
+            },
+            "enableTokenManagement": {
+              "type": "boolean",
+              "description": "Enable advanced token management (default: true)"
+            },
+            "enablePerformanceOptimization": {
+              "type": "boolean",
+              "description": "Enable performance optimization (default: true)"
+            }
+          },
+          "required": ["sessionId", "agents"]
+        }
+      },
+      {
+        "name": "ai-chain-traversal_recoverContext",
+        "tags": [
+          "recovery",
+          "external-storage",
+          "token-management",
+          "strategic-access"
+        ],
+        "toolReferenceName": "recoverContext",
+        "displayName": "Recover External Context",
+        "modelDescription": "Strategically recover context from external backup files with token management and selective loading. **TRIGGER PATTERNS**: Use when resuming interrupted comprehensive source code analysis, recovering 'knowledgeGraph' state after context loss, or continuing multi-phase analysis workflows from external state. USE WHEN you need to restore previous analysis state after context loss, token summarization, or session interruption. Essential for reconstructing analysis state when continuing long-running investigations or when initial context has been compressed due to token limits. Allows selective recovery of specific entity types or relationships based on current needs.",
+        "userDescription": "Recover specific context data from external backup files with intelligent filtering.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(cloud-download)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "Session ID to recover context for"
+            },
+            "recoveryStrategy": {
+              "type": "string",
+              "enum": ["selective", "progressive", "priority_based", "full", "metadata_only"],
+              "default": "selective",
+              "description": "Strategy for context recovery"
+            },
+            "maxTokens": {
+              "type": "number",
+              "default": 50000,
+              "minimum": 1000,
+              "maximum": 200000,
+              "description": "Maximum tokens to use for recovered context"
+            },
+            "entityFilter": {
+              "type": "object",
+              "properties": {
+                "types": {
+                  "type": "array",
+                  "items": {"type": "string"},
+                  "description": "Filter by entity types (e.g., ['controller', 'service'])"
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {"type": "string"},
+                  "description": "Specific entity IDs to recover"
+                },
+                "relatedTo": {
+                  "type": "array",
+                  "items": {"type": "string"},
+                  "description": "Entities related to these IDs"
+                },
+                "relationshipTypes": {
+                  "type": "array",
+                  "items": {"type": "string"},
+                  "description": "Filter by relationship types"
+                }
+              }
+            },
+            "continueFrom": {
+              "type": "number",
+              "description": "Continue progressive loading from this offset"
+            },
+            "outputFormat": {
+              "type": "string",
+              "enum": ["summary", "detailed", "markdown", "structured"],
+              "default": "summary",
+              "description": "Format for output to AI"
+            }
+          },
+          "required": ["sessionId"]
+        }
+      },
+      {
+        "name": "ai-chain-traversal_analyzeBackups",
+        "tags": [
+          "analysis",
+          "external-storage",
+          "metadata",
+          "cost-estimation"
+        ],
+        "toolReferenceName": "analyzeBackups",
+        "displayName": "Analyze External Backups",
+        "modelDescription": "Analyze available backup files and estimate recovery costs before actual loading. **TRIGGER PATTERNS**: Use when planning context recovery strategy, estimating token costs for resuming comprehensive analysis, or assessing available 'knowledgeGraph' data before continuing multi-phase workflows. USE WHEN you want to understand what previous analysis data is available and plan token usage for context recovery. Provides metadata overview and token cost estimates for strategic planning. Helpful for deciding what portions of previous analysis to recover when working with token constraints or when resuming complex investigations.",
+        "userDescription": "Analyze backup files to understand what data is available and estimate recovery costs.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(search)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "Session ID to analyze backups for"
+            },
+            "analysisType": {
+              "type": "string",
+              "enum": ["metadata_only", "size_estimation", "entity_distribution", "time_analysis", "comprehensive"],
+              "default": "metadata_only",
+              "description": "Type of analysis to perform"
+            },
+            "entityFilter": {
+              "type": "object",
+              "properties": {
+                "types": {
+                  "type": "array",
+                  "items": {"type": "string"}
+                },
+                "timeRange": {
+                  "type": "object",
+                  "properties": {
+                    "from": {"type": "string"},
+                    "to": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "required": ["sessionId"]
+        }
+      },
+      {
+        "name": "ai-chain-traversal_outputResults",
+        "tags": [
+          "output",
+          "results",
+          "markdown",
+          "pagination"
+        ],
+        "toolReferenceName": "outputResults",
+        "displayName": "Output Analysis Results",
+        "modelDescription": "Output comprehensive analysis results in multiple formats with intelligent pagination and token management. **TRIGGER PATTERNS**: Use when presenting findings from comprehensive source code analysis, formatting 'knowledgeGraph' results for stakeholders, or delivering final outputs from multi-phase analysis workflows. USE WHEN you need to present analysis findings in user-friendly formats or when working with large result sets that need pagination. Provides both user-readable markdown and AI-structured summaries. Particularly useful for creating final presentations of investigation results or when sharing findings with stakeholders who need formatted documentation.",
+        "userDescription": "Output analysis results in formatted displays with pagination and summaries.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(output)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "Session ID to output results for"
+            },
+            "outputType": {
+              "type": "string",
+              "enum": ["user_markdown", "ai_summary", "comprehensive", "paginated", "chain_completion"],
+              "default": "comprehensive",
+              "description": "Type of output to generate"
+            },
+            "includeChainDetails": {
+              "type": "boolean",
+              "default": true,
+              "description": "Include detailed chain analysis"
+            },
+            "maxTokensPerPage": {
+              "type": "number",
+              "default": 20000,
+              "minimum": 5000,
+              "maximum": 100000,
+              "description": "Maximum tokens per page for paginated output"
+            },
+            "pageNumber": {
+              "type": "number",
+              "default": 1,
+              "minimum": 1,
+              "description": "Page number for paginated results"
+            },
+            "focusAreas": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Specific areas to focus on (entities, relationships, chains, gaps)"
+            }
+          },
+          "required": ["sessionId"]
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "aiChainTraversal.testTools",
+        "title": "Test Chain Traversal Tools",
+        "category": "AI Chain Traversal"
+      }
+    ]
+  },
+  "scripts": {
+    "publish": "npm run vscode:prepublish && vsce package",
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p tsconfig.test.json --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "test:unit": "npm run compile-tests && node ./out/test/testRunner.js unit",
+    "test:integration": "npm run compile-tests && node ./out/test/testRunner.js integration",
+    "test:performance": "npm run compile-tests && node ./out/test/testRunner.js performance",
+    "test:e2e": "npm run compile-tests && node ./out/test/testRunner.js e2e",
+    "test:all": "npm run compile-tests && node ./out/test/testRunner.js",
+    "test:watch": "npm run watch-tests & npm run test:all",
+    "test:coverage": "npm run compile-tests && node ./out/test/testRunner.js --coverage",
+    "test:verbose": "npm run compile-tests && node ./out/test/testRunner.js --verbose"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.122",
+    "@types/uuid": "^10.0.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
+    "@vscode/test-cli": "^0.0.4",
+    "@vscode/test-electron": "^2.3.8",
+    "eslint": "^8.54.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.3.2",
+    "webpack": "^5.101.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "uuid": "^9.0.1",
+    "yaml": "^2.3.4"
+  }
+}
